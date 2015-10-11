@@ -1,0 +1,28 @@
+
+#Installing GMP
+sudo mkdir -p /opt/gmp-6.0.0
+tar -jxvf gmp-6.0.0.tar.bz2 
+cd gmp-6.0.0
+./configure --prefix=/opt/gmp-6.0.0 
+make && make check && sudo make install
+
+
+#Installing MPFR
+sudo mkdir -p /opt/mpfr-3.1.3 tar -jxvf mpfr-3.1.3.tar.bz2 cd mpfr-3.1.3 ./configure --prefix=/opt/mpfr-3.1.3 --with-gmp=/opt/gmp-6.0.0 make && make check && sudo make install
+
+#Installing MPC
+sudo mkdir -p /opt/mpc-1.0.3 tar -zxvf mpc-1.0.3.tar.gz cd mpc-1.0.3 ./configure --prefix=/opt/mpc-1.0.3 --with-gmp=/opt/gmp-6.0.0 --with-mpfr=/opt/mpfr-3.1.3 make && make check && sudo make install
+
+
+# Download GCC Cilkplus for Ubuntu Make and Install
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/gmp-6.0.0/lib:/opt/mpfr-3.1.3/lib:/opt/mpc-1.0.3/lib export C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu && export CPLUS_INCLUDE_PATH=$C_INCLUDE_PATH && export OBJC_INCLUDE_PATH=$C_INCLUDE_PATH export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu tar -zxvf gcc-3cfca5e.tar.gz sudo mkdir -p /opt/gcc-cilkplus-install mkdir gcc_cilkplus_build && cd gcc_cilkplus_build ../gcc-3cfca5e/configure --prefix=/home/sridhar/gcc-cilkplus-install --with-gmp=/opt/gmp-6.0.0 --with-mpfr=/opt/mpfr-3.1.3 --with-mpc=/opt/mpc-1.0.3 --disable-multilib --enable-languages=c,c++ make -j8 sudo make install
+
+
+# Shell Script to Set environment
+# filename: gccvars.sh # 'source gccvars.sh' to set the environment of gcc 
+
+export C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu:$C_INCLUDE_PATH export CPLUS_INCLUDE_PATH=$C_INCLUDE_PATH export OBJC_INCLUDE_PATH=$C_INCLUDE_PATH export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LIBRARY_PATH export GCCDIR=/opt/gcc-cilkplus-install export PATH=$GCCDIR/bin:$PATH export LD_LIBRARY_PATH=$GCCDIR/lib:$GCCDIR/lib64:/opt/gmp-6.0.0/lib:/opt/mpfr-3.1.3/lib:/opt/mpc-1.0.3/lib:$LD_LIBRARY_PATH export MANPATH=$GCCDIR/share/man:$MANPATH
+
+
+#Compiling -
+g++ -fcilkplus -lcilkrts -filename- -o -outfile-
