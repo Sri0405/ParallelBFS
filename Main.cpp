@@ -1,4 +1,6 @@
 
+#include <iostream>
+#include<fstream>
 #include <queue>
 #include <time.h>
 #include <cilk/cilk.h>
@@ -7,6 +9,8 @@
 #include <cilkview.h>
 #include <cilk/cilk_api.h>
 #include <fake_mutex.h>
+
+using namespace std;
 
 const int num_processors = 20;
 cilkscreen::fake_mutex mutexes[num_processors+1];
@@ -109,31 +113,95 @@ public:
 		return adjList[u];
 	}
 
+	void parallelbfsthread(int i, CollectionQueues* Qout, std::vector<long> *d,CollectionQueues* Qin)
+	{
+
+	while(1)
+	{
+        while(Qin->get(i)!= NULL)
+        {
+            long u = Qin->popfromque(i);
+            std::vector<long>& neighbors = getadjList(u);
+            long size = neighbors.size();
+            if(size<=0)
+            {
+                continue;
+            }
+
+            std::vector<long>::iterator iter;
+            for (iter = neighbors.begin(); iter != neighbors.end(); ++iter) {
+                long indx = *iter;
+                long comparev = -1;
+                if (d->at(indx) == comparev) {
+                    d->at(indx)= d->at(u)+(long)1;
+                    Qout->insertinto(i,indx);
+                }
+            }
+
+        }
+
+        int t = 0;
+
+        mutexes[i].lock();
+        while(Qin->get(i) == NULL && t < MAX_STEAL_ATTEMPTS)
+        {
+         int var = num_processors;
+         int r = rand() % var+ 1;
+         if (r != i && mutexes[r].try_lock())
+         {
+            if (Qin->get(r)->size()>MIN_STEAL_SIZE)
+            {
+                std::deque<long>* cur = Qin->get(r);
+
+                int temp =0;
+                int csize = cur->size();
+                std:: deque<long> newdeq (csize/2);
+
+                for (int i = csize/2; i<csize;i++)
+                {
+                    newdeq.at(temp)=cur->at(i);
+                    temp = temp+1;
+                }
+                Qin->setqueue(i,&newdeq);
+            }
+            mutexes[r].unlock();
+         }
+        t = t+1;
+
+        }
+        mutexes[i].unlock();
+        if (Qin->get(i)==NULL)
+        {
+        break;
+        }
+	}
+    }
+
+
+
 	void parallelbfs(long s)
 	{
         std::vector<long> d (n_vertices+1);
 
-        cilk_for (int n =0; n<n_vertices,n++)
-        {
-            d[n]= -1;
-        }
+        cilk_for(int n =1; n<=n_vertices;n++)
+         {   d[n]= -1;}
 
-        int p ;
-        p= num_processors;
+
+        int p =num_processors;
 
         CollectionQueues *Qin , *Qout;
         Qin = new CollectionQueues();
         Qout = new CollectionQueues();
 
-        Qin.insertinto(1,s);
+        Qin->insertinto(1,s);
 
-        while(!Qin.isempty())
+        while(!Qin->isempty())
         {
             for (int i =1;i<p;i++)
             {
-                cilk_spawn parallelbfsthred(i,*Qout.get(i),d,Qin);
+                cilk_spawn parallelbfsthread(i,Qout,&d,Qin);
             }
-            parallelbfsthread(p,Qout,d,Qin);
+            parallelbfsthread(p,Qout,&d,Qin);
             cilk_sync;
 
             Qin = Qout;
@@ -148,68 +216,7 @@ public:
 	}
 
 
-	void parallelbfsthread(int i, CollectionQueues& Qout, std::vector<long> *d,CollectionQueues* Qin)
-	{
 
-	while(True)
-	{
-        while(Qin.get(i)!= NULL)
-        {
-            long u = Qin.popfromque(i);
-            vector<long>& neighbors = getadjList(u);
-            long size = neighbors.size;
-            if(size<=0)
-            {
-                continue;
-            }
-
-            vector<int>::iterator iter;
-            for (iter = neighbors.begin(); iter != neighbors.end(); ++iter) {
-                long indx = *iter;
-                if (d[indx] == -1) {
-                    d[indx]= d[u]+1;
-                    Qout.insertinto(i,indx);
-                }
-            }
-
-        }
-
-        int t = 0;
-
-        mutexes[i].lock();
-        while(Qin.get(i) == NULL && t < MAX_STEAL_ATTEMPTS)
-        {
-         int var = num_processors;
-         r = rand() % var+ 1;
-         if (r != i && mutexes[r].try_lock())
-         {
-            if (Qin.get(r).size()>MIN_STEAL_SIZE)
-            {
-                std::deque<long>* cur = Qin.get(r);
-
-                int temp =0;
-                int csize = cur.size();
-                std:: deque<long> newdeq (csize/2);
-
-                for (int i = csize/2; i<csize;i++)
-                {
-                    newdeq[temp]=cur[i];
-                    temp = temp+1;
-                }
-                Qin.setqueue(i,*newdeq);
-            }
-            mutexes[r].unlock();
-         }
-        t = t+1;
-
-        }
-        mutexes[i].unlock();
-        if (Qin.get(i)==NULL))
-        {
-        break;
-        }
-	}
-}
 };
 
 
@@ -240,10 +247,11 @@ int cilk_main(){
 
 Graph g = ReadfromFile();
 
-for (int i=0; i<g.sources;i++)
+for (int i=0; i<g.sources.size();i++)
 {
     g.parallelbfs(g.sources[i]);
 }
 
 }
+
 
