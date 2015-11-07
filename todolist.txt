@@ -1,2 +1,6 @@
 
 extract sources from random graph generation
+
+upload the modified graph generators , need to get sources
+
+compiling- using codeblocks -> build options -compiler settings ->other options -> -fcilkplus -lcilkrts ; linkersettings -> other options -> -ficlkplus -lcilkrts ->search directories -> include all relevant directories cilktools, cilkplus binaries
