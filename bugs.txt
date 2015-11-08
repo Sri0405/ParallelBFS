@@ -1,4 +1,8 @@
 
 Problem with install script - worked fine with ubuntu 14.04 , need some changes in 15.04 
 
-problem linking libraries error reading bad value again :/ 
+problem linking libraries error reading bad value again :/
+
+memory corruption error : missing delete somewhere , call destructors 
+
+ 
