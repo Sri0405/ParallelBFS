@@ -1,6 +1,5 @@
 
-extract sources from random graph generation
+Can improve efficiency and remove dependencies of locks for critical section
+Modify Data structure to improve speed of algorithm 
 
-upload the modified graph generators , need to get sources
-
-compiling- using codeblocks -> build options -compiler settings ->other options -> -fcilkplus -lcilkrts ; linkersettings -> other options -> -ficlkplus -lcilkrts ->search directories -> include all relevant directories cilktools, cilkplus binaries
+Tips: compiling- using codeblocks -> build options -compiler settings ->other options -> -fcilkplus -lcilkrts ; linkersettings -> other options -> -ficlkplus -lcilkrts ->search directories -> include all relevant directories cilktools, cilkplus binaries
