@@ -1,8 +1,8 @@
 
-Problem with install script - worked fine with ubuntu 14.04 , need some changes in 15.04 
+Problem with install script - worked fine with ubuntu 14.04 , need some changes in 15.04 - done
 
-problem linking libraries error reading bad value again :/
+problem linking libraries error reading bad value again :/ - done
 
-memory corruption error : missing delete somewhere , call destructors 
+memory corruption error : missing delete somewhere , call destructors - done 
 
- 
+Problem with size of deques - not resolved 
