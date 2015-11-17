@@ -5,4 +5,5 @@ problem linking libraries error reading bad value again :/ - done
 
 memory corruption error : missing delete somewhere , call destructors - done 
 
-Problem with size of deques - not resolved 
+Problem with size of deques - done 
+- Removed some dependencies of using ->at calling. Problem with overheads gives this error terminate called after throwing an instance of std out_of_range what
