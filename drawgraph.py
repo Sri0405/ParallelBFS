@@ -27,9 +27,5 @@ class Object():
         plt.show()
 
 
-G = nx.fast_gnp_random_graph(7, 0.5, directed=True)
-print nx.degree(G)
-print G.in_degree()
-print G.out_degree()
-
+G = nx.fast_gnp_random_graph(30, 0.05, directed=True)
 Object().draw_graph(G.edges())
