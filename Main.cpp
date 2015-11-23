@@ -5,76 +5,79 @@
 #include <cilk/cilk.h>
 #include <deque>
 #include <set>
-#include <cilkview.h>
 #include <cilk/cilk_api.h>
-//#include <fake_mutex.h>
-#include <thread>         // std::thread
-#include <mutex>          // std::mutex
+#include <thread>        
+#include <mutex>         
 
 using namespace std;
 
-const int num_processors = 16;
-//cilkscreen::fake_mutex mutexes[num_processors];
+const long long int num_processors = 1;
 std::mutex mtx[num_processors+1];
 
-const int MAX_STEAL_ATTEMPTS = 30;
-const int MIN_STEAL_SIZE = 20;
+const long long int MAX_STEAL_ATTEMPTS = 50;
+const long long int MIN_STEAL_SIZE = 10;
+
+float d1 =0;
 
 class CollectionQueues
 {
 public:
-    deque<int> **q;
+    deque<long long int> **q;
     bool bflag=true;
     CollectionQueues(){
-        int p = num_processors;
-        q = new deque<int>*[p];
-        for (int i =0; i<p; i++)
+        long long int p = num_processors;
+        q = new deque<long long int>*[p];
+        for (long long int i =1; i<=p; i++)
         {
-            q[i]=new deque<int>(0);
+            q[i]=new deque<long long int>(0);
         }
     }
     ~CollectionQueues(){
-    int p = num_processors;
-        for (int i =0; i<p; i++)
+    long long int p = num_processors;
+        for (long long int i =1; i<=p; i++)
         {
             delete q[i];
         }
         delete [] q;
     }
-//    void print(){
-//    for(int i=0;i<num_processors;i++){
-//        if(q[i]->size()!=0){
-//        for(deque<int>::iterator it=q[i]->begin();it!=q[i]->end();it++){
-//                cout<<" "<<*it<<endl;
-//                }
-//            }
-//        }
-//    }
 
-    std::deque<int>* get(int i){
+    std::deque<long long int>* get(long long int i){
         return q[i];
     }
 
-    void insertinto(int loc, int val){
+    void insertinto(long long int loc, long long int val){
+       clock_t t1,t2;
+       t1 = clock();
+
         if(bflag)
             q[loc]->push_front(val);
         else
             q[loc]->push_back(val);
+       t2=clock();
+       float diff = (((float)t2 - (float)t1));
+       d1 = d1+ (diff / CLOCKS_PER_SEC);
+
     }
 
-    void setqueue(int loc,std::deque<int> *newqu){
+    void setqueue(long long int loc,std::deque<long long int> *newqu){
+        clock_t t1,t2;
+        t1 = clock();
         delete q[loc];
-        q[loc]= new std::deque<int>;
-        for (int i =0; i<newqu->size(); i++)
+        q[loc]= new std::deque<long long int>;
+        for (long long int i =1; i<=newqu->size(); i++)
         {
-            int val = newqu->at(i);
+            long long int val = newqu->at(i);
             q[loc]->push_back(val);
         }
+       t2=clock();
+       float diff = (((float)t2 - (float)t1));
+       float xx= (diff / CLOCKS_PER_SEC);
+       d1 = d1 +xx;
     }
 
     bool isallempty(){
-        int p = num_processors;
-        for (int i=0; i<p; i++){
+        long long int p = num_processors;
+        for (long long int i=1; i<=p; i++){
             if (!(q[i]->empty())){
                 return false;
             }
@@ -82,13 +85,13 @@ public:
         return true;
     }
 
-    bool isempty(int i){
+    bool isempty(long long int i){
             if (!(q[i]->empty()))
                 return false;
         return true;}
 
-    int popfromque(int i){
-        int lret=(int)-1;
+    long long int popfromque(long long int i){
+        long long int lret=(long long int)-1;
         if (!q[i]->empty()){
             lret = q[i]->front();
             q[i]->pop_front();
@@ -101,67 +104,71 @@ class Graph
 {
 
 public:
-    int n_vertices; //no. of vertices
-    std::vector<std::vector<int> > adjList; //adjaceny list
-    std::vector<int> d;
-    Graph(int n):
+    long long int n_vertices; 
+    std::vector<std::vector<long long int> > adjList; 
+    std::vector<long long int> d;
+    Graph(long long int n):
         adjList(n + 1){
         n_vertices = n;
     }
-    void addEdge(int u, int v){
+    void addEdge(long long int u, long long int v){
         adjList[u].push_back(v);
     }
-    std::vector<int> getadjList(int u){
+    std::vector<long long int> getadjList(long long int u){
         return adjList[u];
     }
 
-    void parallelbfsthread(int i, CollectionQueues* Qout, std::vector<int> *d,CollectionQueues* Qin){
+    void parallelbfsthread(long long int i, CollectionQueues* Qout, std::vector<long long int> *d,CollectionQueues* Qin){
         while(1)
         {
             while(!Qin->isempty(i))
             {
                 mtx[i].lock();
-                int u = Qin->popfromque(i);
+                long long int u = Qin->popfromque(i);
                 mtx[i].unlock();
-                if(u==(int)-1)
+                if(u==(long long int)-1)
                     break;
-                std::vector<int> neighbors = getadjList(u);
-                int size = neighbors.size();
+                std::vector<long long int> neighbors = getadjList(u);
+                long long int size = neighbors.size();
                 if(size<=0)
                 {continue;}
 
-                std::vector<int>::iterator iter;
+                std::vector<long long int>::iterator iter;
+               fstream file;
+               file.open("/home/heller/testing/out2.txt", std::ios_base::app);
+
                 for (iter = neighbors.begin(); iter != neighbors.end(); ++iter)
                 {
-                    int indx = *iter;
-                    int comparev = -1;
+                    long long int indx = *iter;
+                    long long int comparev = -1;
                     if (d->at(indx) == comparev)
                     {
-                        d->at(indx)= d->at(u)+(int)1;
-                        std::cout<<indx<<std::endl;
+                        d->at(indx)= d->at(u)+(long long int)1;
+                       file<<indx;
+                       file<<endl;
                         Qout->insertinto(i,indx);
                     }
                 }
+               file.close();
             }
-            int t = 0;
+            long long int t = 0;
             mtx[i].lock();
             while(Qin->isempty(i) && t < MAX_STEAL_ATTEMPTS)
             {
-                int p = num_processors;
-                int r = rand() % p ;
+                long long int p = num_processors;
+                long long int r = rand() % p+1 ;
 
                 if (r != i && mtx[r].try_lock())
                 {
-//                    std::cout<<"inside mutex try lock"<<std::endl;
-                    std::deque<int>* cur = Qin->get(r);
+                    std::deque<long long int>* cur = Qin->get(r);
                     if(!cur->empty())
                     {
                         if (cur->size()> MIN_STEAL_SIZE)
                         {
-                            int temp =0;
-                            int csize = cur->size();
-                            std:: deque<int> newdeq (csize/2);
-                            for (int jj = csize/2; jj<csize; jj++)
+                            long long int temp =0;
+                            long long int csize = cur->size();
+                            std:: deque<long long int> newdeq (csize/2);
+                            for (long long int jj = csize/2; jj<csize; jj++)
                             {
                                 newdeq[temp]=cur->at(jj);
                                 temp = temp+1;
@@ -180,65 +187,69 @@ public:
         }
     }
 
-    void parallelbfs(int s)
+    void parallelbfs(long long int s)
     {
-        std::vector<int> d (n_vertices+1);
-        cilk_for(int n =0; n<n_vertices; n++){
-            d[n]= -1;
+        std::vector<long long int> d (n_vertices+1);
+        long long int nn;
+        for(nn =1; nn<=n_vertices; nn++){
+            d[nn]= -1;
         }
-        int p =num_processors;
+        long long int p =num_processors;
         CollectionQueues *Qin = new CollectionQueues();
         CollectionQueues *Qout = new CollectionQueues();
-        Qin->insertinto(0,s);
+        Qin->insertinto(1,s);
+        clock_t t1, t2;
+        t1 = clock();
         d[s]=0;
-        std::cout<<s<<endl;
+       ofstream outputfile;
+       outputfile.open("/home/heller/testing/out2.txt");
+       outputfile<<s;
+       outputfile<<endl;
+       outputfile.close();
+
+
         while(!Qin->isallempty())
         {
-            for (int i =0; i<p; i++){
+            for (long long int i =1; i<p; i++){
                 cilk_spawn parallelbfsthread(i,Qout,&d,Qin);
             }
-            parallelbfsthread(p-1,Qout,&d,Qin);
+            parallelbfsthread(p,Qout,&d,Qin);
             cilk_sync;
             delete Qin;
             Qin = Qout;
             Qout = new CollectionQueues();
         }
-//        for(int i =0; i<d.size()-1; i++){
-//            std::cout<<d[i]<<std::endl;
-//        }
+        t2 = clock();
+        float diff = (((float)t2 - (float)t1));
+        float seconds = diff / CLOCKS_PER_SEC;
+        float nsec = seconds;
+        nsec = nsec -d1;
+        fstream ffile;
+        ffile.open("/home/heller/testing/timesd",std::ios_base::app);
+        ffile<<"cores-time:::"<<seconds<<"---"<<d1<<"--"<<nsec<<endl;
+        ffile.close();
+
         delete Qout;
     }
 };
 
-
-Graph ReadfromFile()
+int main(int argc, char *argv[])
 {
 
-    ifstream in;
-    in.open("/home/heller/Codes-PDP/edges7");
-    int n, e, i, u, v;
-    in >> n >> e;
-    Graph grph(n);
-    for (i = 0; i < e; i++){
-        in >> u >> v;
-        grph.addEdge(u, v);
+   ifstream in(argv[1]);
+    long long int n, dm, a, b;
+    in >> n >> dm;
+    Graph g(n);
+    while (in >> a >> b)
+    {
+        g.addEdge(a,b);
+        g.addEdge(b,a);
     }
     in.close();
-    return grph;
-}
 
-int main()
-{
-    __cilkrts_set_param("nworkers", "4");
-    clock_t t1, t2;
-    t1 = clock();
-    Graph g = ReadfromFile();
-    int v=2;
+    long long int v= 1;
     g.parallelbfs(v);
-    t2 = clock();
-    float diff = (((float)t2 - (float)t1) / 1000000.0F ) * 1000;
-    std::cout<<diff<<endl;
+ 
     return 0;
 }
-
 
