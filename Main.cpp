@@ -15,7 +15,7 @@ const long long int num_processors = 1;
 std::mutex mtx[num_processors+1];
 
 const long long int MAX_STEAL_ATTEMPTS = 50;
-const long long int MIN_STEAL_SIZE = 10;
+const long long int MIN_STEAL_SIZE = 20;
 
 float d1 =0;
 
@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
     while (in >> a >> b)
     {
         g.addEdge(a,b);
-        g.addEdge(b,a);
+        
     }
     in.close();
 
