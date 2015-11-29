@@ -1,5 +1,3 @@
-// Serial BFS
-
 #include <ctime>
 #include <iostream>
 #include <fstream>
@@ -7,64 +5,67 @@
 #include <queue>
 #include <stdio.h>
 #include <time.h>
+#include <chrono>
 
 using namespace std;
+
+long long int counts=0;
 
 class Graph
 {
 
 public:
 
-    int n_vertices; //no. of vertices
-    vector<vector<int> > adjList;
-    std::vector<int> sources;
+    long long int n_vertices; 
+    vector<vector<long long int> > adjList;
+    std::vector<long long int> sources;
     bool *check;
-    std::vector<int> d;
-    Graph(int n): adjList(n+1)
+
+    Graph(long long int n): adjList(n+1)
     {
         n_vertices = n;
         check = new bool[n];
     }
 
-    void addEdge(int u, int v)
+    void addEdge(long long int u,long long int v)
     {
         adjList[u].push_back(v);
     }
 
-    vector<int>& getadjList(int u)
+    vector<long long int>& getadjList(long long int u)
     {
         return adjList[u];
     }
 
-    void bfs(int n);
+    void bfs(long long int n);
 
 };
 
-void Graph::bfs(int n)
+void Graph::bfs(long long int n)
 {
-//	cout<<"worked till here"<<endl;
-
-    for(int i=0; i<n_vertices; i++)
+    
+    long long int i;
+    for(i=0; i<n_vertices; i++)
     {
-
         check[i]=false;
     }
 
     check[n]= true;
-    std::queue<int> q;
+  
+    std::queue<long long int> q;
     q.push(n);
-
     while (!q.empty())
     {
-        int currentvertex = q.front();
-        std::cout<<currentvertex<<std::endl;
+        long long int currentvertex = q.front();
+        counts = counts+1;
         q.pop();
-        vector<int>::iterator iter;
+        vector<long long int>::iterator iter;
         for(iter = adjList[currentvertex].begin(); iter!=adjList[currentvertex].end(); ++iter)
         {
-            int indx = *iter;
+            long long int indx = *iter;
             if(!check[indx])
             {
+                cout<<" node is ::"<<indx<<endl;
                 check[indx]=true;
                 q.push(indx);
             }
@@ -72,56 +73,30 @@ void Graph::bfs(int n)
     }
 }
 
-Graph ReadfromFile()
+int main(int argc,char* argv[])
 {
-
-    ifstream in;
-    in.open("/home/heller/Codes-PDP/edges7");
-    int n,e,i,u,v,s;
-    in>>n>>e>>s;
-    Graph grph(n);
-    // std::cout<<n<<"---"<<e<<std::endl;
-    for(i =1; i<=e; i++)
+    
+    ifstream in(argv[1]);
+    long long int n, dm, a, b;
+    in >> n >> dm;
+    Graph g(n);
+    while (in >> a >> b)
     {
-        in>>u>>v;
-        grph.addEdge(u,v);
-        // std::cout<<u<<"-"<<v<<std::endl;
-    }
-    int val;
-    for (i =1; i<=s; i++)
-    {
-        in>>val;
-        grph.sources.push_back(val);
+        g.addEdge(a,b);
     }
     in.close();
+    long long int v= 1;
+    auto start = chrono::steady_clock::now();
 
-    return grph;
+    g.bfs(v);
+    
+    auto end = chrono::steady_clock::now();
 
-}
+    auto diff = end - start;
 
-// void print_time(){
-// 	// source : stack overflow
-// 	// time_t t =time(0);
-// 	// struct tm * now = localtime(&t);
-// 	// std::cout<< (now->tm_hour<<":"<<now->tm_min<<":"<<now->tm_sec<<now->std::endl;
-// }
-
-int main(int argc,char *argv[])
-{
-    // print_time();
-    clock_t t1, t2;
-    Graph grph1 = ReadfromFile();
-    t1 = clock();
-
-    int v = 2;
-    grph1.bfs(v);
-
-
-    t2 = clock();
-    float diff = (((float)t2 - (float)t1));
-    float seconds = diff/CLOCKS_PER_SEC;
-	std::cout<<seconds<<endl;
-    // print_time();
+    cout<<"counts is "<<counts<<endl;
+    cout << chrono::duration <double, milli> (diff).count() << " ms" << endl;
+    
     return 0;
 }
 
