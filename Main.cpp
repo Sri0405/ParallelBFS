@@ -6,18 +6,17 @@
 #include <deque>
 #include <set>
 #include <cilk/cilk_api.h>
-#include <thread>        
-#include <mutex>         
+#include <thread>         
+#include <mutex>          
 
 using namespace std;
 
-const long long int num_processors = 1;
+const long long int num_processors = 4;
+//cilkscreen::fake_mutex mutexes[num_processors];
 std::mutex mtx[num_processors+1];
 
-const long long int MAX_STEAL_ATTEMPTS = 50;
+const long long int MAX_STEAL_ATTEMPTS = 30;
 const long long int MIN_STEAL_SIZE = 20;
-
-float d1 =0;
 
 class CollectionQueues
 {
@@ -46,33 +45,20 @@ public:
     }
 
     void insertinto(long long int loc, long long int val){
-       clock_t t1,t2;
-       t1 = clock();
-
         if(bflag)
             q[loc]->push_front(val);
         else
             q[loc]->push_back(val);
-       t2=clock();
-       float diff = (((float)t2 - (float)t1));
-       d1 = d1+ (diff / CLOCKS_PER_SEC);
-
     }
 
     void setqueue(long long int loc,std::deque<long long int> *newqu){
-        clock_t t1,t2;
-        t1 = clock();
         delete q[loc];
         q[loc]= new std::deque<long long int>;
-        for (long long int i =1; i<=newqu->size(); i++)
+        for (long long int i =0; i<newqu->size(); i++)
         {
             long long int val = newqu->at(i);
             q[loc]->push_back(val);
         }
-       t2=clock();
-       float diff = (((float)t2 - (float)t1));
-       float xx= (diff / CLOCKS_PER_SEC);
-       d1 = d1 +xx;
     }
 
     bool isallempty(){
@@ -104,8 +90,8 @@ class Graph
 {
 
 public:
-    long long int n_vertices; 
-    std::vector<std::vector<long long int> > adjList; 
+    long long int n_vertices; //no. of vertices
+    std::vector<std::vector<long long int> > adjList; //adjaceny list
     std::vector<long long int> d;
     Graph(long long int n):
         adjList(n + 1){
@@ -134,9 +120,6 @@ public:
                 {continue;}
 
                 std::vector<long long int>::iterator iter;
-               fstream file;
-               file.open("/home/heller/testing/out2.txt", std::ios_base::app);
-
                 for (iter = neighbors.begin(); iter != neighbors.end(); ++iter)
                 {
                     long long int indx = *iter;
@@ -144,22 +127,21 @@ public:
                     if (d->at(indx) == comparev)
                     {
                         d->at(indx)= d->at(u)+(long long int)1;
-                       file<<indx;
-                       file<<endl;
+                        // std::cout<<"in thead i "<< i<<" "<< indx<<std::endl;
                         Qout->insertinto(i,indx);
                     }
                 }
-               file.close();
             }
             long long int t = 0;
             mtx[i].lock();
             while(Qin->isempty(i) && t < MAX_STEAL_ATTEMPTS)
             {
                 long long int p = num_processors;
-                long long int r = rand() % p+1 ;
+                long long int r = rand() % p +1;
 
                 if (r != i && mtx[r].try_lock())
                 {
+//                    std::cout<<"inside mutex try lock"<<std::endl;
                     std::deque<long long int>* cur = Qin->get(r);
                     if(!cur->empty())
                     {
@@ -168,9 +150,10 @@ public:
                             long long int temp =0;
                             long long int csize = cur->size();
                             std:: deque<long long int> newdeq (csize/2);
-                            for (long long int jj = csize/2; jj<csize; jj++)
+                            for (long long int jj = csize-1; jj>=csize/2; jj--)
                             {
                                 newdeq[temp]=cur->at(jj);
+                                Qin->q[r]->pop_back();
                                 temp = temp+1;
                             }
                             Qin->setqueue(i,&newdeq);
@@ -190,27 +173,20 @@ public:
     void parallelbfs(long long int s)
     {
         std::vector<long long int> d (n_vertices+1);
-        long long int nn;
-        for(nn =1; nn<=n_vertices; nn++){
+        cilk_for(long long int nn =1; nn<=n_vertices; nn++){
             d[nn]= -1;
         }
         long long int p =num_processors;
         CollectionQueues *Qin = new CollectionQueues();
         CollectionQueues *Qout = new CollectionQueues();
         Qin->insertinto(1,s);
-        clock_t t1, t2;
-        t1 = clock();
         d[s]=0;
-       ofstream outputfile;
-       outputfile.open("/home/heller/testing/out2.txt");
-       outputfile<<s;
-       outputfile<<endl;
-       outputfile.close();
-
+        std::cout<<s<<endl;
+        auto start = chrono::steady_clock::now();
 
         while(!Qin->isallempty())
         {
-            for (long long int i =1; i<p; i++){
+            for (long long int i =1; i<=p; i++){
                 cilk_spawn parallelbfsthread(i,Qout,&d,Qin);
             }
             parallelbfsthread(p,Qout,&d,Qin);
@@ -219,37 +195,39 @@ public:
             Qin = Qout;
             Qout = new CollectionQueues();
         }
-        t2 = clock();
-        float diff = (((float)t2 - (float)t1));
-        float seconds = diff / CLOCKS_PER_SEC;
-        float nsec = seconds;
-        nsec = nsec -d1;
-        fstream ffile;
-        ffile.open("/home/heller/testing/timesd",std::ios_base::app);
-        ffile<<"cores-time:::"<<seconds<<"---"<<d1<<"--"<<nsec<<endl;
-        ffile.close();
-
         delete Qout;
+        long long int counts =0;
+        for (int nn = 1; nn <= n_vertices; nn++)
+        {
+            if(d[nn] != -1)
+                counts=counts+1;
+        }
+        auto end = chrono::steady_clock::now();
+        auto diff = end - start;
+        cout<<"counts is "<<counts<<endl;
+        cout<<"testtt counts is "<<counts<<endl;
+        
+        cout << chrono::duration <double, milli>(diff).count() << " ms" << endl;
+        
     }
 };
 
-int main(int argc, char *argv[])
-{
 
-   ifstream in(argv[1]);
+int main(int argc,char* argv[])
+{
+    ifstream in("/home/heller/testing/edges");
+    __cilkrts_set_param("nworkers", "4");
     long long int n, dm, a, b;
     in >> n >> dm;
     Graph g(n);
     while (in >> a >> b)
     {
         g.addEdge(a,b);
-        
+        g.addEdge(b,a);
     }
     in.close();
 
     long long int v= 1;
     g.parallelbfs(v);
- 
     return 0;
 }
-
