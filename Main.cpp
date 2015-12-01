@@ -6,16 +6,17 @@
 #include <deque>
 #include <set>
 #include <cilk/cilk_api.h>
-#include <thread>         
-#include <mutex>          
+#include <thread>
+#include <mutex>
 
 using namespace std;
 
-const long long int num_processors = 4;
-//cilkscreen::fake_mutex mutexes[num_processors];
+const long long int num_processors = 16;
 std::mutex mtx[num_processors+1];
 
-const long long int MAX_STEAL_ATTEMPTS = 30;
+
+long long int counts =0;
+const long long int MAX_STEAL_ATTEMPTS = 50;
 const long long int MIN_STEAL_SIZE = 20;
 
 class CollectionQueues
@@ -26,14 +27,14 @@ public:
     CollectionQueues(){
         long long int p = num_processors;
         q = new deque<long long int>*[p];
-        for (long long int i =1; i<=p; i++)
+        for (long long int i =0; i<p; i++)
         {
             q[i]=new deque<long long int>(0);
         }
     }
     ~CollectionQueues(){
     long long int p = num_processors;
-        for (long long int i =1; i<=p; i++)
+        for (long long int i =0; i<p; i++)
         {
             delete q[i];
         }
@@ -63,7 +64,7 @@ public:
 
     bool isallempty(){
         long long int p = num_processors;
-        for (long long int i=1; i<=p; i++){
+        for (long long int i=0; i<p; i++){
             if (!(q[i]->empty())){
                 return false;
             }
@@ -127,7 +128,7 @@ public:
                     if (d->at(indx) == comparev)
                     {
                         d->at(indx)= d->at(u)+(long long int)1;
-                        // std::cout<<"in thead i "<< i<<" "<< indx<<std::endl;
+  //                      std::cout<<"in thread i <<"<< i<<" node << "<<indx<<std::endl;
                         Qout->insertinto(i,indx);
                     }
                 }
@@ -137,11 +138,10 @@ public:
             while(Qin->isempty(i) && t < MAX_STEAL_ATTEMPTS)
             {
                 long long int p = num_processors;
-                long long int r = rand() % p +1;
+                long long int r = rand() % p ;
 
                 if (r != i && mtx[r].try_lock())
                 {
-//                    std::cout<<"inside mutex try lock"<<std::endl;
                     std::deque<long long int>* cur = Qin->get(r);
                     if(!cur->empty())
                     {
@@ -173,61 +173,69 @@ public:
     void parallelbfs(long long int s)
     {
         std::vector<long long int> d (n_vertices+1);
-        cilk_for(long long int nn =1; nn<=n_vertices; nn++){
-            d[nn]= -1;
+        int xval;
+        for(xval =0; xval<n_vertices; xval++){
+            d[xval]= -1;
         }
-        long long int p =num_processors;
+
+        long long int p = num_processors;
         CollectionQueues *Qin = new CollectionQueues();
         CollectionQueues *Qout = new CollectionQueues();
-        Qin->insertinto(1,s);
+        Qin->insertinto(0,s);
         d[s]=0;
         std::cout<<s<<endl;
-        auto start = chrono::steady_clock::now();
-
         while(!Qin->isallempty())
         {
-            for (long long int i =1; i<=p; i++){
+            for (long long int i =0; i<p; i++){
                 cilk_spawn parallelbfsthread(i,Qout,&d,Qin);
             }
-            parallelbfsthread(p,Qout,&d,Qin);
+            parallelbfsthread(p-1,Qout,&d,Qin);
             cilk_sync;
             delete Qin;
             Qin = Qout;
             Qout = new CollectionQueues();
         }
-        delete Qout;
-        long long int counts =0;
-        for (int nn = 1; nn <= n_vertices; nn++)
+       int nn;
+        for (nn = 0; nn < n_vertices; nn++)
         {
             if(d[nn] != -1)
                 counts=counts+1;
         }
-        auto end = chrono::steady_clock::now();
-        auto diff = end - start;
-        cout<<"counts is "<<counts<<endl;
-        cout<<"testtt counts is "<<counts<<endl;
-        
-        cout << chrono::duration <double, milli>(diff).count() << " ms" << endl;
-        
+        delete Qout;
     }
 };
 
 
+
 int main(int argc,char* argv[])
 {
-    ifstream in("/home/heller/testing/edges");
-    __cilkrts_set_param("nworkers", "4");
+   __cilkrts_set_param("nworkers", "16");
+
+    ifstream in(argv[1]);
+
     long long int n, dm, a, b;
     in >> n >> dm;
     Graph g(n);
+
     while (in >> a >> b)
     {
         g.addEdge(a,b);
         g.addEdge(b,a);
     }
     in.close();
+    auto start = chrono::steady_clock::now();
 
-    long long int v= 1;
+
+    long long int v= 0;
     g.parallelbfs(v);
+
+    auto end = chrono::steady_clock::now();
+    auto diff = end - start;
+    fstream ffile;
+    ffile.open("/gpfs/courses/cse603/students/sridharb/timespbs-steal16.txt", std::ios_base::app);
+    ffile<<"counts "<<counts<<endl;
+    ffile<< chrono::duration <double, milli>(diff).count() << "ms" << endl;
+    ffile.close();
     return 0;
 }
+
