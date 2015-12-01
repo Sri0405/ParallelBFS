@@ -15,13 +15,7 @@ using namespace std;
 
 std::mutex mtxs;
 
-using namespace std;
-
-
-int num_processors = 4;
-
-float d1 = 0;
-
+int num_processors = 32;
 
 class CollectionQueues
 {
@@ -29,11 +23,12 @@ public:
 	deque<long long int> **q;
 	bool bflag = true;
 	long long int Sseg = 0;
+	
 	CollectionQueues()
 	{
 		long long int p = num_processors;
 		q = new deque<long long int>*[p];
-		for (long long int i = 1; i <= p; i++)
+		for (long long int i = 0; i < p; i++)
 		{
 			q[i] = new deque<long long int>(0);
 		}
@@ -43,22 +38,12 @@ public:
 	{
 		long long int s = 0;
 		long long int p = num_processors;
-		for (long long int i = 1; i <= p; i++)
+		for (long long int i = 0; i < p; i++)
 		{
 			s = s + q[i]->size();
 		}
 		return s;
 	}
-
-	//    ~CollectionQueues()
-	//    {
-	//        long long int p = num_processors;
-	//        for (long long int i =1; i<=p; i++)
-	//        {
-	//            delete q[i];
-	//        }
-	//        delete [] q;
-	//    }
 
 	std::deque<long long int>* get(long long int i)
 	{
@@ -77,7 +62,8 @@ public:
 	bool isallempty()
 	{
 		long long int p = num_processors;
-		for (long long int i = 1; i <= p; i++)
+		
+		for (long long int i = 0; i < p; i++)
 		{
 			if (!(q[i]->empty()))
 			{
@@ -112,7 +98,7 @@ public:
 	{
 		long long int i;
 		long long int p = num_processors;
-		for (i = 1; i <= p; i++)
+		for (i = 0; i < p; i++)
 		{
 			if (!(q[i]->empty()))
 				break;
@@ -122,20 +108,23 @@ public:
 
 	deque<long long int> nextSegment()
 	{
+		mtxs.lock();
 		std::deque<long long int> S;
 		{
 			if (!isallempty())
 			{
 				long long int i = getsmallestnonemptyqueue();
 				long long int k = min(Sseg, (long long int)q[i]->size());
-				for (long long int l = 1; l <= k; l++)
+				
+				for (long long int l = 0; l < k; l++)
 				{
-					if (q[i]->size() >= 1) {
+					{
 						S.push_front(popfromque(i));
 					}
 				}
 			}
 		}
+		mtxs.unlock();
 		return S;
 	}
 };
@@ -170,30 +159,19 @@ public:
 
 	void parallelbfsthread(int i, Graph* g, CollectionQueues* Qout, std::vector<long long int> *d, CollectionQueues* Qin)
 	{
-		cout << " in thread " << i << endl;
 		std::deque<long long int> S;
-		if (mtxs.try_lock())
 		{
 			S = Qin->nextSegment();
-			mtxs.unlock();
 		}
 
-		//cout << " in thread " << i << " got S queue " << S.size() << endl;
 		while (!(S.empty()))
 		{
 			while (!(S.empty()))
 			{
 				long long int u = S.front();
 				S.pop_front();
-				if (u == -1 || u > 100000000 || u<-100000000)
-					break;
-				std::vector<long long int> neighbors = g->getadjList(u);
+				std::vector<long long int> neighbors = g->getadjList(u);	
 				long long int size = neighbors.size();
-				if (size <= 0)
-				{
-					continue;
-				}
-
 				std::vector<long long int>::iterator iter;
 				for (iter = neighbors.begin(); iter != neighbors.end(); ++iter)
 				{
@@ -203,11 +181,7 @@ public:
 					if (d->at(indx) == comparev)
 					{
 						d->at(indx) = d->at(u) + (long long int)1;
-						// if(i!=1)
-						// {
-						// cout << "in thread :" << i << " node : " << indx << endl;	
-						// }
-						Qout->insertinto(rand()% num_processors+1, indx);
+						Qout->insertinto(rand()% num_processors, indx);
 					}
 				}
 			}
@@ -218,35 +192,34 @@ public:
 	{
 		std::vector<long long int> d(g.n_vertices + 1);
 		long long int nn;
-		for (nn = 1; nn <= g.n_vertices; nn++)
+		for (nn = 0; nn < g.n_vertices; nn++)
 		{
 			d[nn] = -1;
 		}
 
 		d[s] = 0;
 		long long int p = num_processors;
-		cout << "in thread source" << " node : " << s << endl;
 
 		CollectionQueues *Qin = new CollectionQueues();
 		CollectionQueues *Qout = new CollectionQueues();
 
-		Qin->insertinto(1, s);
+		Qin->insertinto(0, s);
 
 		auto start = chrono::steady_clock::now();
 		while (!Qin->isallempty())
 		{
-			long long int n_seg = 2;
+			long long int n_seg = 1;
 			long long int ss = Qin->size();
 			float df = ss / n_seg;
 			df = df + 0.5;
 			long long int vv = (long long int)round(df);
 			Qin->Sseg = vv;
 
-			for (int i = 1; i<=p; i++)
+			for (int i = 0; i<p; i++)
 			{
 				cilk_spawn parallelbfsthread(i, &g, Qout, &d, Qin);
 			}
-			parallelbfsthread(p, &g, Qout, &d, Qin);
+			parallelbfsthread(p-1, &g, Qout, &d, Qin);
 			cilk_sync;
 			delete Qin;
 			Qin = Qout;
@@ -257,40 +230,40 @@ public:
 
 		long counts =0;
 
-		for (nn = 1; nn <= g.n_vertices; nn++)
+		for (nn = 0; nn < g.n_vertices; nn++)
 		{
 			if(d[nn] != -1)
+			{
 				counts=counts+1;
+			}
+			
 		}
 		
-		// fstream ffile;
-		// ffile.open("/home/heller/testing/timesrecent.txt", std::ios_base::app);
-		// ffile << "serial for counts is " << counts << endl;
-		cout << chrono::duration <double, milli>(diff).count() << "ms" << endl;
-		// ffile.close();
+		fstream ffile;
+		ffile.open("/gpfs/courses/cse603/students/sridharb/timespbs32.txt", std::ios_base::app);
+		ffile << "serial for counts is " << counts << endl;
+		ffile<<"counts "<<counts<<endl;
+		ffile<< chrono::duration <double, milli>(diff).count() << "ms" << endl;
+		ffile.close();
 		delete Qout;
 	}
 };
 
 int main(int argc, char* argv[])
 {
-	ifstream in("/home/heller/testing/edges");
-
-	__cilkrts_set_param("nworkers", "4");
+	ifstream in(argv[1]);
+	__cilkrts_set_param("nworkers", "32");
 	long long int n, dm, a, b;
 	in >> n >> dm;
 	Graph g(n);
-
 	while (in >> a >> b)
 	{
 		g.addEdge(a, b);
 		g.addEdge(b, a);
 	}
 	in.close();
-
-	long long int v = 1;
+	long long int v = 0;
 	PBS pbs;
-	cout << "startng" << endl;
 	pbs.parallelbfs(g, v);
 	return 0;
 }
