@@ -91,8 +91,8 @@ class Graph
 {
 
 public:
-    long long int n_vertices; //no. of vertices
-    std::vector<std::vector<long long int> > adjList; //adjaceny list
+    long long int n_vertices; 
+    std::vector<std::vector<long long int> > adjList; 
     std::vector<long long int> d;
     Graph(long long int n):
         adjList(n + 1){
