@@ -2,4 +2,7 @@
 Can improve efficiency and remove dependencies of locks for critical section
 Modify Data structure to improve speed of algorithm 
 
+
 Tips: compiling- using codeblocks -> build options -compiler settings ->other options -> -fcilkplus -lcilkrts ; linkersettings -> other options -> -ficlkplus -lcilkrts ->search directories -> include all relevant directories cilktools, cilkplus binaries
+
+Set params before spawning and you need not stop cilk environment and start it again. 
