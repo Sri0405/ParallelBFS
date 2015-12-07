@@ -10,12 +10,25 @@
 #include <math.h>
 #include <thread>
 #include <mutex>
-
+#include <atomic>
 using namespace std;
 
-std::mutex mtxs;
+// std::mutex mtxs;
 
-int num_processors = 32;
+class SpinLock {
+    std::atomic_flag locked = ATOMIC_FLAG_INIT ;
+public:
+    void lock() {
+        while (locked.test_and_set(std::memory_order_acquire)) { ; }
+    }
+    void unlock() {
+        locked.clear(std::memory_order_release);
+    }
+};
+
+SpinLock mtxs;
+
+int num_processors = 16;
 
 class CollectionQueues
 {
@@ -28,7 +41,7 @@ public:
 	{
 		long long int p = num_processors;
 		q = new deque<long long int>*[p];
-		for (long long int i = 0; i < p; i++)
+		for (long long int i = 1; i <= p; i++)
 		{
 			q[i] = new deque<long long int>(0);
 		}
@@ -38,7 +51,7 @@ public:
 	{
 		long long int s = 0;
 		long long int p = num_processors;
-		for (long long int i = 0; i < p; i++)
+		for (long long int i = 1; i <= p; i++)
 		{
 			s = s + q[i]->size();
 		}
@@ -52,18 +65,18 @@ public:
 
 	void insertinto(long long int loc, long long int val)
 	{
-		if (mtxs.try_lock())
-		{
+		mtxs.lock();
+		
 			q[loc]->push_back(val);
 			mtxs.unlock();
-		}
+		
 	}
 
 	bool isallempty()
 	{
 		long long int p = num_processors;
 		
-		for (long long int i = 0; i < p; i++)
+		for (long long int i = 1; i <= p; i++)
 		{
 			if (!(q[i]->empty()))
 			{
@@ -98,7 +111,7 @@ public:
 	{
 		long long int i;
 		long long int p = num_processors;
-		for (i = 0; i < p; i++)
+		for (i = 1; i <= p; i++)
 		{
 			if (!(q[i]->empty()))
 				break;
@@ -116,7 +129,7 @@ public:
 				long long int i = getsmallestnonemptyqueue();
 				long long int k = min(Sseg, (long long int)q[i]->size());
 				
-				for (long long int l = 0; l < k; l++)
+				for (long long int l = 1; l <= k; l++)
 				{
 					{
 						S.push_front(popfromque(i));
@@ -181,7 +194,7 @@ public:
 					if (d->at(indx) == comparev)
 					{
 						d->at(indx) = d->at(u) + (long long int)1;
-						Qout->insertinto(rand()% num_processors, indx);
+						Qout->insertinto(rand()% num_processors+1, indx);
 					}
 				}
 			}
@@ -192,7 +205,7 @@ public:
 	{
 		std::vector<long long int> d(g.n_vertices + 1);
 		long long int nn;
-		for (nn = 0; nn < g.n_vertices; nn++)
+		for (nn = 1; nn <= g.n_vertices; nn++)
 		{
 			d[nn] = -1;
 		}
@@ -203,7 +216,7 @@ public:
 		CollectionQueues *Qin = new CollectionQueues();
 		CollectionQueues *Qout = new CollectionQueues();
 
-		Qin->insertinto(0, s);
+		Qin->insertinto(1, s);
 
 		auto start = chrono::steady_clock::now();
 		while (!Qin->isallempty())
@@ -215,11 +228,11 @@ public:
 			long long int vv = (long long int)round(df);
 			Qin->Sseg = vv;
 
-			for (int i = 0; i<p; i++)
+			for (int i = 1; i<=p; i++)
 			{
 				cilk_spawn parallelbfsthread(i, &g, Qout, &d, Qin);
 			}
-			parallelbfsthread(p-1, &g, Qout, &d, Qin);
+			parallelbfsthread(p, &g, Qout, &d, Qin);
 			cilk_sync;
 			delete Qin;
 			Qin = Qout;
@@ -230,7 +243,7 @@ public:
 
 		long counts =0;
 
-		for (nn = 0; nn < g.n_vertices; nn++)
+		for (nn = 1; nn <= g.n_vertices; nn++)
 		{
 			if(d[nn] != -1)
 			{
@@ -240,7 +253,7 @@ public:
 		}
 		
 		fstream ffile;
-		ffile.open("/gpfs/courses/cse603/students/sridharb/timespbs32.txt", std::ios_base::app);
+		ffile.open("/gpfs/courses/cse603/students/sridharb/timespbs16.txt", std::ios_base::app);
 		ffile << "serial for counts is " << counts << endl;
 		ffile<<"counts "<<counts<<endl;
 		ffile<< chrono::duration <double, milli>(diff).count() << "ms" << endl;
@@ -252,7 +265,7 @@ public:
 int main(int argc, char* argv[])
 {
 	ifstream in(argv[1]);
-	__cilkrts_set_param("nworkers", "32");
+	__cilkrts_set_param("nworkers", "16");
 	long long int n, dm, a, b;
 	in >> n >> dm;
 	Graph g(n);
@@ -262,9 +275,8 @@ int main(int argc, char* argv[])
 		g.addEdge(b, a);
 	}
 	in.close();
-	long long int v = 0;
+	long long int v = 1;
 	PBS pbs;
 	pbs.parallelbfs(g, v);
 	return 0;
 }
-
